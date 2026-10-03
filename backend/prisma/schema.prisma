@@ -1,0 +1,1168 @@
+// Art & Gallery Marketplace — MySQL schema (DATABASE_TYPE=mysql, ORM_PROVIDER=prisma)
+// Money is stored as Decimal(12,2). Financial ledger rows are append-only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum RoleName {
+  ADMIN
+  ARTIST
+  CUSTOMER
+}
+
+enum ArtistStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SUSPENDED
+  INACTIVE
+}
+
+enum ArtistType {
+  INDIVIDUAL
+  STUDIO
+  GALLERY
+  CREATIVE_BUSINESS
+}
+
+enum ArtworkType {
+  ORIGINAL_PAINTING
+  DIGITAL_ART
+  PRINT
+  PORTRAIT
+  ILLUSTRATION
+  PHOTOGRAPHY
+  WALL_ART
+  ABSTRACT
+  CUSTOM_ART
+  OTHER
+}
+
+enum ArtworkFormat {
+  ORIGINAL
+  PRINT
+  DIGITAL
+}
+
+enum ArtworkStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  SOLD_OUT
+  ARCHIVED
+}
+
+enum Orientation {
+  PORTRAIT
+  LANDSCAPE
+  SQUARE
+  PANORAMIC
+}
+
+enum CustomArtStatus {
+  REQUESTED
+  ARTIST_REVIEWING
+  ACCEPTED
+  REJECTED
+  IN_PROGRESS
+  PREVIEW_READY
+  REVISION_REQUESTED
+  CUSTOMER_APPROVED
+  FINALIZING
+  COMPLETED
+  CANCELLED
+}
+
+enum CustomArtImageKind {
+  SOURCE
+  REFERENCE
+  PREVIEW
+  FINAL
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  AWAITING_CONFIRMATION
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  MANUAL
+  RAZORPAY
+  STRIPE
+  PAYU
+}
+
+enum FulfillmentType {
+  PHYSICAL
+  DIGITAL
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  PACKED
+  SHIPPED
+  DELIVERED
+  DIGITAL_AVAILABLE
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WishlistItemType {
+  ARTWORK
+  ARTIST
+  GALLERY
+  COLLECTION
+}
+
+enum CommissionScope {
+  GLOBAL
+  ARTIST
+  CATEGORY
+  ARTWORK
+  CUSTOM_ART
+}
+
+enum LedgerEntryType {
+  SALE_CREDIT
+  COMMISSION_DEBIT
+  SETTLEMENT_DEBIT
+  ADJUSTMENT
+  REFUND_DEBIT
+}
+
+enum LedgerStatus {
+  PENDING
+  AVAILABLE
+  SETTLED
+  REVERSED
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ReportTargetType {
+  ARTWORK
+  USER
+  ARTIST
+  REVIEW
+}
+
+enum ReportReason {
+  INAPPROPRIATE
+  COPYRIGHT
+  SPAM
+  FRAUD
+  SELLER_VIOLATION
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+// ───────────────────────── Authentication ─────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  avatarUrl    String?
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  failedLogins Int        @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles            UserRole[]
+  sessions         Session[]
+  artist           Artist?
+  customerProfile  CustomerProfile?
+  addresses        CustomerAddress[]
+  wishlists        Wishlist[]
+  follows          ArtistFollow[]
+  recentlyViewed   RecentlyViewedArtwork[]
+  customRequests   CustomArtRequest[]      @relation("CustomerRequests")
+  cart             Cart?
+  orders           Order[]
+  artworkReviews   ArtworkReview[]
+  artistReviews    ArtistReview[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  downloadAccesses DownloadAccess[]
+  reportsFiled     Report[]                @relation("ReportsFiled")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        RoleName         @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique
+  userAgent        String?   @db.VarChar(512)
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ───────────────────────────── Artist ─────────────────────────────
+
+model Artist {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  displayName        String
+  slug               String       @unique
+  type               ArtistType   @default(INDIVIDUAL)
+  status             ArtistStatus @default(PENDING_APPROVAL)
+  avatarUrl          String?
+  coverImageUrl      String?
+  isFeatured         Boolean      @default(false)
+  acceptsCustomArt   Boolean      @default(true)
+  customArtBasePrice Decimal?     @db.Decimal(12, 2)
+  followerCount      Int          @default(0)
+  ratingAverage      Decimal      @default(0) @db.Decimal(3, 2)
+  ratingCount        Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile        ArtistProfile?
+  address        ArtistAddress?
+  documents      ArtistDocument[]
+  approvals      ArtistApproval[]
+  gallery        Gallery?
+  styles         ArtworkStyle[]      @relation("ArtistStyles")
+  mediums        ArtworkMedium[]     @relation("ArtistMediums")
+  artworks       Artwork[]
+  collections    ArtworkCollection[]
+  followers      ArtistFollow[]
+  customRequests CustomArtRequest[]  @relation("ArtistRequests")
+  orderItems     OrderItem[]
+  shipments      Shipment[]
+  reviews        ArtistReview[]
+  ledger         ArtistLedger[]
+  settlements    Settlement[]
+  featured       FeaturedArtist[]
+
+  @@index([status])
+}
+
+model ArtistProfile {
+  id                String           @id @default(cuid())
+  artistId          String           @unique
+  bio               String?          @db.VarChar(500)
+  description       String?          @db.Text
+  artistStatement   String?          @db.Text
+  yearsOfExperience Int?
+  website           String?
+  socialLinks       Json?
+  specializations   Json?
+  awards            Json?
+  primaryCategoryId String?
+  artist            Artist           @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  primaryCategory   ArtworkCategory? @relation(fields: [primaryCategoryId], references: [id])
+}
+
+model ArtistAddress {
+  id         String  @id @default(cuid())
+  artistId   String  @unique
+  line1      String?
+  line2      String?
+  city       String?
+  state      String?
+  country    String  @default("IN")
+  postalCode String?
+  artist     Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+}
+
+model ArtistDocument {
+  id         String   @id @default(cuid())
+  artistId   String
+  kind       String // PORTFOLIO, ID_PROOF, CERTIFICATE ...
+  title      String?
+  storageKey String // private storage key
+  createdAt  DateTime @default(now())
+  artist     Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId])
+}
+
+model ArtistApproval {
+  id         String        @id @default(cuid())
+  artistId   String
+  adminId    String?
+  fromStatus ArtistStatus?
+  toStatus   ArtistStatus
+  reason     String?       @db.VarChar(1000)
+  createdAt  DateTime      @default(now())
+  artist     Artist        @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId])
+}
+
+// ───────────────────────────── Gallery ─────────────────────────────
+
+model Gallery {
+  id            String              @id @default(cuid())
+  artistId      String              @unique
+  name          String
+  slug          String              @unique
+  tagline       String?
+  description   String?             @db.Text
+  coverImageUrl String?
+  isFeatured    Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  artist        Artist              @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  images        GalleryImage[]
+  collections   GalleryCollection[]
+}
+
+model GalleryImage {
+  id         String  @id @default(cuid())
+  galleryId  String
+  url        String
+  storageKey String
+  caption    String?
+  sortOrder  Int     @default(0)
+  gallery    Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@index([galleryId])
+}
+
+model GalleryCollection {
+  galleryId    String
+  collectionId String
+  sortOrder    Int               @default(0)
+  gallery      Gallery           @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  collection   ArtworkCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([galleryId, collectionId])
+}
+
+// ───────────────────────────── Taxonomy ─────────────────────────────
+
+model ArtworkCategory {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  slug        String          @unique
+  description String?         @db.VarChar(1000)
+  imageUrl    String?
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  artworks    Artwork[]
+  profiles    ArtistProfile[]
+}
+
+model ArtworkStyle {
+  id                    String             @id @default(cuid())
+  name                  String             @unique
+  slug                  String             @unique
+  description           String?            @db.VarChar(1000)
+  imageUrl              String?
+  isActive              Boolean            @default(true)
+  availableForCustomArt Boolean            @default(true)
+  sortOrder             Int                @default(0)
+  artworks              Artwork[]
+  artists               Artist[]           @relation("ArtistStyles")
+  customRequests        CustomArtRequest[]
+}
+
+model ArtworkMedium {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  artworks  Artwork[]
+  artists   Artist[]  @relation("ArtistMediums")
+}
+
+model ArtworkTheme {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  artworks  Artwork[]
+}
+
+model ArtworkTag {
+  id       String                @id @default(cuid())
+  name     String                @unique
+  slug     String                @unique
+  artworks ArtworkTagOnArtwork[]
+}
+
+model ArtworkTagOnArtwork {
+  artworkId String
+  tagId     String
+  artwork   Artwork    @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  tag       ArtworkTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([artworkId, tagId])
+}
+
+// ───────────────────────────── Artwork ─────────────────────────────
+
+model Artwork {
+  id             String        @id @default(cuid())
+  artistId       String
+  title          String
+  slug           String        @unique
+  description    String?       @db.Text
+  type           ArtworkType
+  format         ArtworkFormat
+  status         ArtworkStatus @default(DRAFT)
+  categoryId     String?
+  styleId        String?
+  mediumId       String?
+  themeId        String?
+  yearCreated    Int?
+  widthCm        Decimal?      @db.Decimal(8, 2)
+  heightCm       Decimal?      @db.Decimal(8, 2)
+  depthCm        Decimal?      @db.Decimal(8, 2)
+  orientation    Orientation?
+  dominantColor  String? // e.g. "purple", "#8b2bd9"
+  price          Decimal       @db.Decimal(12, 2)
+  discountPrice  Decimal?      @db.Decimal(12, 2)
+  currency       String        @default("INR")
+  sku            String        @unique
+  isFeatured     Boolean       @default(false)
+  isCustomizable Boolean       @default(false)
+  licenseInfo    String?       @db.VarChar(2000)
+  copyrightInfo  String?       @db.VarChar(1000)
+  thumbnailUrl   String?
+  previewUrl     String?
+  digitalFileKey String? // PRIVATE storage key for DIGITAL deliverable — never exposed
+  viewCount      Int           @default(0)
+  salesCount     Int           @default(0)
+  wishlistCount  Int           @default(0)
+  ratingAverage  Decimal       @default(0) @db.Decimal(3, 2)
+  ratingCount    Int           @default(0)
+  publishedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  artist          Artist                  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  category        ArtworkCategory?        @relation(fields: [categoryId], references: [id])
+  style           ArtworkStyle?           @relation(fields: [styleId], references: [id])
+  medium          ArtworkMedium?          @relation(fields: [mediumId], references: [id])
+  theme           ArtworkTheme?           @relation(fields: [themeId], references: [id])
+  images          ArtworkImage[]
+  tags            ArtworkTagOnArtwork[]
+  approvals       ArtworkApproval[]
+  inventory       ArtworkInventory?
+  collectionItems CollectionItem[]
+  wishlistItems   WishlistItem[]
+  recentlyViewed  RecentlyViewedArtwork[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  reviews         ArtworkReview[]
+  featured        FeaturedArtwork[]
+  customRequests  CustomArtRequest[]
+  downloadAccess  DownloadAccess[]
+
+  @@index([status, publishedAt])
+  @@index([artistId, status])
+  @@index([categoryId])
+  @@index([styleId])
+  @@index([mediumId])
+  @@fulltext([title, description])
+}
+
+model ArtworkImage {
+  id         String   @id @default(cuid())
+  artworkId  String
+  url        String
+  thumbUrl   String?
+  storageKey String
+  width      Int?
+  height     Int?
+  isPrimary  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  altText    String?
+  createdAt  DateTime @default(now())
+  artwork    Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId])
+}
+
+model ArtworkInventory {
+  artworkId String   @id
+  quantity  Int      @default(1)
+  reserved  Int      @default(0)
+  updatedAt DateTime @updatedAt
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+}
+
+model ArtworkApproval {
+  id         String         @id @default(cuid())
+  artworkId  String
+  actorId    String?
+  fromStatus ArtworkStatus?
+  toStatus   ArtworkStatus
+  reason     String?        @db.VarChar(1000)
+  createdAt  DateTime       @default(now())
+  artwork    Artwork        @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@index([artworkId])
+}
+
+model ArtworkCollection {
+  id            String              @id @default(cuid())
+  artistId      String? // null = curated by admin
+  name          String
+  slug          String              @unique
+  description   String?             @db.Text
+  coverImageUrl String?
+  isFeatured    Boolean             @default(false)
+  isPublished   Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  artist        Artist?             @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  items         CollectionItem[]
+  galleries     GalleryCollection[]
+  wishlistItems WishlistItem[]
+}
+
+model CollectionItem {
+  collectionId String
+  artworkId    String
+  sortOrder    Int               @default(0)
+  addedAt      DateTime          @default(now())
+  collection   ArtworkCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  artwork      Artwork           @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, artworkId])
+}
+
+// ───────────────────────────── Customer ─────────────────────────────
+
+model CustomerProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  dateOfBirth DateTime?
+  preferences Json?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CustomerAddress {
+  id         String  @id @default(cuid())
+  userId     String
+  label      String?
+  fullName   String
+  phone      String
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  country    String  @default("IN")
+  postalCode String
+  isDefault  Boolean @default(false)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  userId    String
+  name      String         @default("My Wishlist")
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+
+  @@index([userId])
+}
+
+model WishlistItem {
+  id           String             @id @default(cuid())
+  wishlistId   String
+  itemType     WishlistItemType
+  targetId     String // id of the saved artwork/artist/gallery/collection
+  artworkId    String?
+  artistId     String?
+  galleryId    String?
+  collectionId String?
+  createdAt    DateTime           @default(now())
+  wishlist     Wishlist           @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  artwork      Artwork?           @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  collection   ArtworkCollection? @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, itemType, targetId])
+}
+
+model ArtistFollow {
+  userId    String
+  artistId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artistId])
+  @@index([artistId])
+}
+
+model RecentlyViewedArtwork {
+  userId    String
+  artworkId String
+  viewedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artworkId])
+  @@index([userId, viewedAt])
+}
+
+// ───────────────────────────── Custom Art ─────────────────────────────
+
+model CustomArtRequest {
+  id                  String          @id @default(cuid())
+  requestNumber       String          @unique
+  customerId          String
+  artistId            String
+  selectedStyleId     String?
+  selectedArtworkId   String?
+  title               String?
+  instructions        String          @db.Text
+  options             Json? // background, clothing, colors, text, pose, lighting, theme...
+  requestedDimensions String?
+  requestedFormat     ArtworkFormat   @default(DIGITAL)
+  budget              Decimal?        @db.Decimal(12, 2)
+  quotedPrice         Decimal?        @db.Decimal(12, 2)
+  currency            String          @default("INR")
+  status              CustomArtStatus @default(REQUESTED)
+  artistMessage       String?         @db.Text
+  customerMessage     String?         @db.Text
+  revisionCount       Int             @default(0)
+  maxRevisions        Int             @default(2)
+  dueDate             DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  customer        User                     @relation("CustomerRequests", fields: [customerId], references: [id])
+  artist          Artist                   @relation("ArtistRequests", fields: [artistId], references: [id])
+  selectedStyle   ArtworkStyle?            @relation(fields: [selectedStyleId], references: [id])
+  selectedArtwork Artwork?                 @relation(fields: [selectedArtworkId], references: [id])
+  images          CustomArtImage[]
+  revisions       CustomArtRevision[]
+  statusHistory   CustomArtStatusHistory[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+
+  @@index([customerId, status])
+  @@index([artistId, status])
+}
+
+model CustomArtImage {
+  id            String             @id @default(cuid())
+  requestId     String
+  kind          CustomArtImageKind
+  storageKey    String // always PRIVATE storage — served via signed URL only
+  mimeType      String
+  width         Int?
+  height        Int?
+  sizeBytes     Int
+  isAiGenerated Boolean            @default(false)
+  uploadedById  String
+  createdAt     DateTime           @default(now())
+  request       CustomArtRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, kind])
+}
+
+model CustomArtRevision {
+  id             String           @id @default(cuid())
+  requestId      String
+  revisionNumber Int
+  feedback       String           @db.Text
+  createdAt      DateTime         @default(now())
+  request        CustomArtRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+model CustomArtStatusHistory {
+  id         String           @id @default(cuid())
+  requestId  String
+  fromStatus CustomArtStatus?
+  toStatus   CustomArtStatus
+  actorId    String
+  actorRole  RoleName
+  note       String?          @db.VarChar(2000)
+  createdAt  DateTime         @default(now())
+  request    CustomArtRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// ───────────────────────────── Commerce ─────────────────────────────
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+model CartItem {
+  id                 String            @id @default(cuid())
+  cartId             String
+  artworkId          String?
+  customArtRequestId String?
+  quantity           Int               @default(1)
+  createdAt          DateTime          @default(now())
+  cart               Cart              @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  artwork            Artwork?          @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  customArtRequest   CustomArtRequest? @relation(fields: [customArtRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, artworkId])
+  @@unique([cartId, customArtRequestId])
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  customerId      String
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod
+  subtotal        Decimal       @db.Decimal(12, 2)
+  shippingFee     Decimal       @default(0) @db.Decimal(12, 2)
+  discountTotal   Decimal       @default(0) @db.Decimal(12, 2)
+  total           Decimal       @db.Decimal(12, 2)
+  currency        String        @default("INR")
+  shippingAddress Json?
+  notes           String?       @db.VarChar(1000)
+  placedAt        DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  customer        User          @relation(fields: [customerId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  shipments       Shipment[]
+
+  @@index([customerId, placedAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id                 String            @id @default(cuid())
+  orderId            String
+  artistId           String
+  artworkId          String?
+  customArtRequestId String?
+  titleSnapshot      String
+  imageSnapshot      String?
+  format             ArtworkFormat
+  fulfillmentType    FulfillmentType
+  fulfillmentStatus  FulfillmentStatus @default(PENDING)
+  unitPrice          Decimal           @db.Decimal(12, 2)
+  quantity           Int
+  lineTotal          Decimal           @db.Decimal(12, 2)
+  commissionRate     Decimal           @db.Decimal(5, 2)
+  commissionAmount   Decimal           @db.Decimal(12, 2)
+  artistAmount       Decimal           @db.Decimal(12, 2)
+  createdAt          DateTime          @default(now())
+  order              Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artist             Artist            @relation(fields: [artistId], references: [id])
+  artwork            Artwork?          @relation(fields: [artworkId], references: [id])
+  customArtRequest   CustomArtRequest? @relation(fields: [customArtRequestId], references: [id])
+  commission         Commission?
+  downloadAccess     DownloadAccess[]
+  ledgerEntries      ArtistLedger[]
+  reviews            ArtworkReview[]
+
+  @@index([artistId, createdAt])
+  @@index([orderId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  provider      String // cod, manual, razorpay, stripe, payu
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  amount        Decimal       @db.Decimal(12, 2)
+  currency      String        @default("INR")
+  providerRef   String?
+  confirmedById String?
+  confirmedAt   DateTime?
+  meta          Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Shipment {
+  id             String         @id @default(cuid())
+  orderId        String
+  artistId       String
+  carrier        String?
+  method         String?
+  trackingNumber String?
+  packagingInfo  String?        @db.VarChar(1000)
+  status         ShipmentStatus @default(PENDING)
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artist         Artist         @relation(fields: [artistId], references: [id])
+
+  @@unique([orderId, artistId])
+}
+
+model DownloadAccess {
+  id            String        @id @default(cuid())
+  orderItemId   String
+  userId        String
+  artworkId     String?
+  storageKey    String // private deliverable key
+  maxDownloads  Int           @default(5)
+  downloadCount Int           @default(0)
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artwork       Artwork?      @relation(fields: [artworkId], references: [id])
+  logs          DownloadLog[]
+
+  @@index([userId])
+}
+
+model DownloadLog {
+  id               String         @id @default(cuid())
+  downloadAccessId String
+  ipAddress        String?
+  userAgent        String?        @db.VarChar(512)
+  createdAt        DateTime       @default(now())
+  downloadAccess   DownloadAccess @relation(fields: [downloadAccessId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── Reviews ─────────────────────────────
+
+model ArtworkReview {
+  id               String        @id @default(cuid())
+  artworkId        String
+  userId           String
+  orderItemId      String?
+  rating           Int
+  title            String?
+  body             String?       @db.Text
+  verifiedPurchase Boolean       @default(false)
+  status           ReviewStatus  @default(APPROVED)
+  createdAt        DateTime      @default(now())
+  artwork          Artwork       @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItem        OrderItem?    @relation(fields: [orderItemId], references: [id])
+  images           ReviewImage[]
+
+  @@unique([artworkId, userId])
+}
+
+model ArtistReview {
+  id               String       @id @default(cuid())
+  artistId         String
+  userId           String
+  rating           Int
+  body             String?      @db.Text
+  verifiedPurchase Boolean      @default(false)
+  status           ReviewStatus @default(APPROVED)
+  createdAt        DateTime     @default(now())
+  artist           Artist       @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, userId])
+}
+
+model ReviewImage {
+  id         String        @id @default(cuid())
+  reviewId   String
+  url        String
+  storageKey String
+  review     ArtworkReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── Finance ─────────────────────────────
+
+model CommissionRule {
+  id         String          @id @default(cuid())
+  scope      CommissionScope
+  targetId   String? // artistId / categoryId / artworkId depending on scope
+  percentage Decimal         @db.Decimal(5, 2)
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([scope, targetId])
+}
+
+/// Immutable snapshot of commission applied to an order item.
+model Commission {
+  id           String          @id @default(cuid())
+  orderItemId  String          @unique
+  ruleScope    CommissionScope
+  ruleId       String?
+  percentage   Decimal         @db.Decimal(5, 2)
+  grossAmount  Decimal         @db.Decimal(12, 2)
+  amount       Decimal         @db.Decimal(12, 2)
+  artistAmount Decimal         @db.Decimal(12, 2)
+  createdAt    DateTime        @default(now())
+  orderItem    OrderItem       @relation(fields: [orderItemId], references: [id])
+}
+
+/// Append-only ledger. Rows are never updated except `status` transitions.
+model ArtistLedger {
+  id           String          @id @default(cuid())
+  artistId     String
+  type         LedgerEntryType
+  status       LedgerStatus    @default(PENDING)
+  amount       Decimal         @db.Decimal(12, 2) // signed: credits positive, debits negative
+  description  String
+  orderItemId  String?
+  settlementId String?
+  createdAt    DateTime        @default(now())
+  artist       Artist          @relation(fields: [artistId], references: [id])
+  orderItem    OrderItem?      @relation(fields: [orderItemId], references: [id])
+  settlement   Settlement?     @relation(fields: [settlementId], references: [id])
+
+  @@index([artistId, status])
+}
+
+model Settlement {
+  id            String                  @id @default(cuid())
+  artistId      String
+  amount        Decimal                 @db.Decimal(12, 2)
+  status        SettlementStatus        @default(PENDING)
+  reference     String?
+  note          String?                 @db.VarChar(1000)
+  processedById String?
+  createdAt     DateTime                @default(now())
+  completedAt   DateTime?
+  artist        Artist                  @relation(fields: [artistId], references: [id])
+  ledger        ArtistLedger[]
+  transactions  SettlementTransaction[]
+}
+
+model SettlementTransaction {
+  id           String     @id @default(cuid())
+  settlementId String
+  amount       Decimal    @db.Decimal(12, 2)
+  method       String // BANK_TRANSFER, UPI ...
+  reference    String?
+  createdAt    DateTime   @default(now())
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── Marketing ─────────────────────────────
+
+model Banner {
+  id        String    @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String
+  linkUrl   String?
+  placement String    @default("HOME_HERO")
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Promotion {
+  id          String    @id @default(cuid())
+  title       String
+  description String?   @db.VarChar(1000)
+  code        String?   @unique
+  percentOff  Decimal?  @db.Decimal(5, 2)
+  isActive    Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model FeaturedArtwork {
+  id        String    @id @default(cuid())
+  artworkId String
+  placement String    @default("HOME")
+  sortOrder Int       @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  artwork   Artwork   @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, placement])
+}
+
+model FeaturedArtist {
+  id        String    @id @default(cuid())
+  artistId  String
+  placement String    @default("HOME")
+  sortOrder Int       @default(0)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  artist    Artist    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, placement])
+}
+
+// ───────────────────────────── System ─────────────────────────────
+
+model Report {
+  id           String           @id @default(cuid())
+  reporterId   String
+  targetType   ReportTargetType
+  targetId     String
+  reason       ReportReason
+  details      String?          @db.Text
+  status       ReportStatus     @default(OPEN)
+  resolution   String?          @db.VarChar(1000)
+  resolvedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  reporter     User             @relation("ReportsFiled", fields: [reporterId], references: [id])
+
+  @@index([status])
+  @@index([targetType, targetId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?   @db.VarChar(1000)
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String
+  body      String   @db.Text
+  channel   String   @default("IN_APP")
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #0b0a12;
+  --color-ink-2: #12101c;
+  --color-ink-3: #1c1930;
+  --color-brand: #8b2bd9;
+  --color-brand-dark: #7a1fc7;
+  --color-brand-light: #f3e8ff;
+  --color-magenta: #ff4fa3;
+  --color-sunset: #ff8a3d;
+  --color-teal: #18c3c9;
+  --font-sans: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  --font-script: 'Great Vibes', cursive;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-heading: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-gradient: gradient 14s ease infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-18px) }
+}
+
+@keyframes hero-progress {
+  from { width: 0% }
+  to { width: 100% }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50% }
+  50% { background-position: 100% 50% }
+  100% { background-position: 0% 50% }
+}
+
+:root { --btn-radius: 9999px; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  color: #1b1726;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+
+@layer components {
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2 rounded-[var(--btn-radius)] bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_30px_-8px_color-mix(in_srgb,var(--color-brand)_70%,transparent)] transition hover:bg-brand-dark hover:shadow-[0_10px_40px_-6px_color-mix(in_srgb,var(--color-brand)_90%,transparent)] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-[var(--btn-radius)] border border-white/40 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:border-white hover:bg-white/10;
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-[var(--btn-radius)] border border-brand px-5 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white disabled:opacity-50;
+  }
+  .container-x { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+  .section-title { @apply text-3xl font-medium tracking-tight text-ink sm:text-4xl; font-family: var(--font-heading); }
+  .input {
+    @apply w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/20;
+  }
+  .label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500; }
+  .chip {
+    @apply inline-flex items-center rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand;
+  }
+  .chip-active { @apply border-brand bg-brand text-white hover:text-white; }
+  .card { @apply rounded-2xl border border-gray-100 bg-white shadow-sm; }
+  .glass { @apply border border-white/15 bg-white/10 backdrop-blur-xl; }
+  .text-gradient {
+    @apply bg-gradient-to-r from-magenta via-brand to-teal bg-clip-text text-transparent;
+  }
+}
+
+.masonry { column-gap: 1.25rem; columns: 1; }
+@media (min-width: 640px) { .masonry { columns: 2; } }
+@media (min-width: 1024px) { .masonry { columns: 3; } }
+@media (min-width: 1280px) { .masonry { columns: 4; } }
+.masonry > * { break-inside: avoid; margin-bottom: 1.25rem; }
+
+.hero-fallback {
+  background: radial-gradient(circle at 20% 30%, var(--color-magenta) 0, transparent 35%),
+    radial-gradient(circle at 75% 25%, var(--color-teal) 0, transparent 30%),
+    radial-gradient(circle at 60% 75%, var(--color-sunset) 0, transparent 35%),
+    radial-gradient(circle at 30% 80%, var(--color-brand) 0, transparent 40%), var(--color-ink-2);
+  background-size: 160% 160%;
+  animation: gradient 18s ease infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
