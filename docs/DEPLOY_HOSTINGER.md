@@ -17,14 +17,14 @@ Only the **backend** runs on Hostinger. The frontend can be hosted anywhere (Ver
 | Framework / preset | **Express.js** (or "Other") |
 | Node.js version | **20** or **22** |
 | **Root directory** | `backend` |
-| Install / build command | `npm ci --include=dev && npm run build` |
+| Install / build command | `npm run build` (after Hostinger installs packages; `npm ci && npm run build` if you set the command yourself) |
 | **Entry file** (root file) | `server.js` |
 | Start command (if asked) | `npm start` |
 
 What these do:
 - `backend/server.js` is the root entry file — it starts the compiled API in `backend/dist/`.
 - `npm run build` runs `prisma generate` (database client for the server's OS) and compiles TypeScript to `dist/`.
-- `--include=dev` is needed because the build tools (TypeScript, Prisma CLI) are dev dependencies.
+- Build tools (TypeScript, Prisma CLI, type definitions) are regular dependencies, so the build also works when the host installs production packages only.
 - The app listens on the `PORT` Hostinger provides automatically.
 
 ## 3. Environment variables
@@ -106,4 +106,4 @@ The frontend is a single-page app: configure the host to serve `index.html` for 
 | CORS error in the browser | Add the exact frontend origin (scheme + host, no trailing slash) to `FRONTEND_URL`. |
 | Logged out after every page reload | Frontend is on another domain → set `COOKIE_SAMESITE=none` (HTTPS only). |
 | Images 404 | Upload `uploads/public` into `LOCAL_UPLOAD_DIR`, and make sure image URLs match `API_PUBLIC_URL`. |
-| Build fails at `prisma generate` | Ensure the build command includes `--include=dev`. |
+| Build fails with `Cannot find type definition file for 'node'` | Use the latest code from `main` (build tools are regular dependencies now) and redeploy. |

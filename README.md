@@ -114,7 +114,7 @@ Regenerate the files from your local database with `cd backend && npx tsx prisma
 
 ### Hostinger (mymoonsgallery.com)
 
-**Backend only on Hostinger?** Follow [docs/DEPLOY_HOSTINGER.md](docs/DEPLOY_HOSTINGER.md): root directory `backend`, build `npm ci --include=dev && npm run build`, entry file `server.js`.
+**Backend only on Hostinger?** Follow [docs/DEPLOY_HOSTINGER.md](docs/DEPLOY_HOSTINGER.md): root directory `backend`, build `npm run build`, entry file `server.js`.
 
 `backend/.env.production` (git-ignored, local only) is prepared for your Hostinger database (host `localhost` when the API runs on the Hostinger server).
 1. **Rotate the database password in hPanel first** (it was shared in chat), then update `DATABASE_URL` (URL-encode special characters, e.g. `@` → `%40`).
