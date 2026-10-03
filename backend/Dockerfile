@@ -8,6 +8,7 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY tsconfig*.json ./
 COPY src ./src
+COPY seed-media ./seed-media
 RUN npm run build && npm prune --omit=dev
 
 # ---- runtime ----
@@ -19,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
+COPY --from=build --chown=node:node /app/seed-media ./seed-media
 COPY --chown=node:node package.json ./
 USER node
 EXPOSE 4000

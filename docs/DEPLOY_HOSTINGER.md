@@ -70,6 +70,8 @@ The API refuses to start in production with placeholder secrets.
 
 ## 4. Images
 
+**Automatic (default):** on every start the API (a) rewrites stored image links that point at another host to `API_PUBLIC_URL`, and (b) copies the bundled demo images from `backend/seed-media/public` into `LOCAL_UPLOAD_DIR/public` when they are missing. So after a deploy the public images appear without manual uploads. Only the private demo files (custom-art photos, digital downloads) still need the zip below.
+
 **Quick fix for an existing database** whose image links point to the wrong host: run `database/fix-image-urls.sql` in phpMyAdmin (SQL tab). It rewrites every stored image URL to `https://artgalleryapi.mymoonsgallery.com/media/...` and is safe to run more than once.
 
 **Upload the image files:** `database/art-gallery-uploads.zip` (created locally, not in git) contains `public/` and `private/`. In hPanel → File Manager, open the folder used as `LOCAL_UPLOAD_DIR` (or the app's `uploads/` folder if you did not set it), upload the zip and **Extract** it there so you get `<folder>/public/artworks/...`. Test: `https://artgalleryapi.mymoonsgallery.com/media/artworks/<file>.webp` should show an image.

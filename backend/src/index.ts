@@ -3,10 +3,13 @@ import { createExpressApp } from './adapters/express/app.js';
 import { createHapiServer } from './adapters/hapi/server.js';
 import { allRoutes } from './bootstrap/routes.js';
 import { connectDatabase, disconnectDatabase } from './database/index.js';
+import { bootstrapMedia } from './bootstrap/media-bootstrap.js';
 import { logger } from './utils/logger.js';
 
 async function main() {
   await connectDatabase();
+  // Fix image URLs from other hosts and restore bundled demo images (safe, idempotent).
+  if (!config.isTest) await bootstrapMedia();
   const routes = allRoutes();
 
   let close: () => Promise<void>;
