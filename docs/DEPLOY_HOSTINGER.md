@@ -40,7 +40,7 @@ ORM_PROVIDER=prisma
 DATABASE_URL=mysql://DB_USER:DB_PASSWORD@DB_HOST:3306/DB_NAME
 
 # Public URL of THIS API (images are served from <API_PUBLIC_URL>/media/...)
-API_PUBLIC_URL=https://api.mymoonsgallery.com
+API_PUBLIC_URL=https://artgalleryapi.mymoonsgallery.com
 # Where the frontend is hosted (comma-separate several). Used for CORS and CSRF checks.
 FRONTEND_URL=https://mymoonsgallery.com,https://www.mymoonsgallery.com
 # lax  = frontend and API on the same site (mymoonsgallery.com + api.mymoonsgallery.com)
@@ -70,21 +70,26 @@ The API refuses to start in production with placeholder secrets.
 
 ## 4. Images
 
+**Quick fix for an existing database** whose image links point to the wrong host: run `database/fix-image-urls.sql` in phpMyAdmin (SQL tab). It rewrites every stored image URL to `https://artgalleryapi.mymoonsgallery.com/media/...` and is safe to run more than once.
+
+**Upload the image files:** `database/art-gallery-uploads.zip` (created locally, not in git) contains `public/` and `private/`. In hPanel → File Manager, open the folder used as `LOCAL_UPLOAD_DIR` (or the app's `uploads/` folder if you did not set it), upload the zip and **Extract** it there so you get `<folder>/public/artworks/...`. Test: `https://artgalleryapi.mymoonsgallery.com/media/artworks/<file>.webp` should show an image.
+
+
 The images are not in git. Upload the contents of your local `backend/uploads/` folder (both `public/` and `private/`) to the folder set in `LOCAL_UPLOAD_DIR` (hPanel → **File Manager**, or SFTP). Keep `private/` private — never put it inside `public_html`.
 
-The image URLs inside `art_gallery_full.sql` start with `https://mymoonsgallery.com/media/`. If your API runs on a different address (for example `https://api.mymoonsgallery.com`), regenerate the SQL so they match:
+The image URLs inside `art_gallery_full.sql` start with `https://mymoonsgallery.com/media/`. If your API runs on a different address (for example `https://artgalleryapi.mymoonsgallery.com`), regenerate the SQL so they match:
 
 ```bash
 cd backend
-EXPORT_PUBLIC_URL=https://api.mymoonsgallery.com npx tsx prisma/export-production.ts
+EXPORT_PUBLIC_URL=https://artgalleryapi.mymoonsgallery.com npx tsx prisma/export-production.ts
 ```
 
 ## 5. Point a domain at the API
 
 Attach a domain or subdomain (recommended: `api.mymoonsgallery.com`) to the Node.js app and enable **SSL**. Then check:
 
-- `https://api.mymoonsgallery.com/health` → `{"status":"ok", "database": {"status":"up"}, ...}`
-- `https://api.mymoonsgallery.com/api/v1/artworks?pageSize=1` → artworks JSON
+- `https://artgalleryapi.mymoonsgallery.com/health` → `{"status":"ok", "database": {"status":"up"}, ...}`
+- `https://artgalleryapi.mymoonsgallery.com/api/v1/artworks?pageSize=1` → artworks JSON
 
 ## 6. Frontend settings
 
@@ -92,7 +97,7 @@ Build the frontend with the API address:
 
 ```bash
 cd frontend
-VITE_API_URL=https://api.mymoonsgallery.com/api/v1 npm run build   # upload frontend/dist
+VITE_API_URL=https://artgalleryapi.mymoonsgallery.com/api/v1 npm run build   # upload frontend/dist
 ```
 
 The frontend is a single-page app: configure the host to serve `index.html` for unknown paths (see `frontend/nginx.conf`; on Hostinger static hosting add an `.htaccess` rewrite to `index.html`).

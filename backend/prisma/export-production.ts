@@ -24,7 +24,7 @@ const ROOT_PASSWORD = process.env.MYSQL_ROOT_PASSWORD ?? 'password';
 const SOURCE_DB = 'art_gallery';
 const EXPORT_DB = 'art_gallery_export_tmp';
 const LOCAL_URL = 'http://localhost:4000';
-const PUBLIC_URL = (process.env.EXPORT_PUBLIC_URL ?? 'https://mymoonsgallery.com').replace(/\/$/, '');
+const PUBLIC_URL = (process.env.EXPORT_PUBLIC_URL ?? 'https://artgalleryapi.mymoonsgallery.com').replace(/\/$/, '');
 const ADMIN_EMAIL = process.env.EXPORT_ADMIN_EMAIL ?? 'admin@mymoonsgallery.com';
 const OUT_DIR = path.resolve('..', 'database');
 
@@ -127,7 +127,8 @@ async function main() {
   fs.writeFileSync(path.join(OUT_DIR, 'art_gallery_full.sql'), header('MyMoons Art Gallery — full database (tables + demo data)') + full + footer);
   fs.writeFileSync(path.join(OUT_DIR, 'art_gallery_schema.sql'), header('MyMoons Art Gallery — tables only (no data)') + schema + footer);
   fs.writeFileSync(
-    path.join(OUT_DIR, 'production-credentials.local.txt'),
+    // Never overwrite an earlier passwords file: it may match a database that is already live.
+    path.join(OUT_DIR, fs.existsSync(path.join(OUT_DIR, 'production-credentials.local.txt')) ? `production-credentials-${Date.now()}.local.txt` : 'production-credentials.local.txt'),
     `Sign-in details for the accounts inside database/art_gallery_full.sql\nGenerated ${new Date().toISOString()} — KEEP PRIVATE, do not commit, change after first login.\n\n${credentials.join('\n')}\n`,
   );
 
