@@ -193,8 +193,8 @@ export function ArtworkMasonry({ artworks }: { artworks: ArtworkCard[] }) {
           key={a.id}
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.6, delay: (i % 4) * 0.08 }}
+          viewport={{ once: true, margin: '0px 0px 200px 0px' }}
+          transition={{ duration: 0.45, delay: (i % 4) * 0.05 }}
         >
           <ArtworkTile artwork={a} priority={i < 4} />
         </motion.div>

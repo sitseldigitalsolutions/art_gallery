@@ -83,19 +83,22 @@ export async function processAndStoreImage(
 ): Promise<ProcessedImage> {
   await validateImage(file, opts);
   const id = `${Date.now()}-${nanoid(12)}`;
-  const maxDim = opts.maxDimension ?? 2400;
+  const maxDim = opts.maxDimension ?? 1600;
 
   const pipeline = sharp(file.buffer, { limitInputPixels: opts.maxPixels ?? DEFAULT_RULES.maxPixels })
     .rotate() // apply EXIF orientation before metadata is dropped
     .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true });
 
-  const { data, info } = await pipeline.clone().webp({ quality: opts.quality ?? 86 }).toBuffer({ resolveWithObject: true });
+  const { data, info } = await pipeline.clone().webp({ quality: opts.quality ?? 80 }).toBuffer({ resolveWithObject: true });
   const main = await storage.put(area, `${id}.webp`, data, 'image/webp');
 
   let thumb: StoredObject | null = null;
   if (opts.thumbnail !== false) {
     const t = await sharp(data).resize({ width: 640, height: 640, fit: 'inside' }).webp({ quality: 78 }).toBuffer();
     thumb = await storage.put(area, `${id}-thumb.webp`, t, 'image/webp');
+    // Medium variant (<name>-md.webp) used by tiles and covers; the web app falls back to the main file.
+    const md = await sharp(data).resize({ width: 960, height: 960, fit: 'inside', withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
+    await storage.put(area, `${id}-md.webp`, md, 'image/webp');
   }
   return { main, thumb, width: info.width, height: info.height };
 }

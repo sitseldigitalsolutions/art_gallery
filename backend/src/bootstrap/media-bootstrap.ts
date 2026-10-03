@@ -51,9 +51,9 @@ export async function alignMediaUrls() {
 const SEED_MEDIA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'seed-media', 'public');
 
 /**
- * Copies bundled public images into the upload folder when they are missing there — so a fresh
- * deployment shows the demo catalogue without uploading files by hand. Existing files are never
- * overwritten. Only public images are bundled; private files must be uploaded separately.
+ * Copies bundled public images into the upload folder when they are missing or outdated there, so a
+ * fresh deployment shows the demo catalogue without uploading files by hand. Only files that exist in
+ * seed-media are touched. Only public images are bundled; private files must be uploaded separately.
  */
 export async function restoreSeedMedia() {
   if (config.STORAGE_PROVIDER !== 'local') return 0;
@@ -68,8 +68,10 @@ export async function restoreSeedMedia() {
         continue;
       }
       const to = path.join(target, path.relative(SEED_MEDIA_DIR, from));
-      const exists = await fs.stat(to).then(() => true, () => false);
-      if (exists) continue;
+      // Copy when missing, or when the bundled file was updated (e.g. re-optimised). Bundled demo files
+      // have unique generated names, so this never touches images uploaded on the live site.
+      const [srcStat, dstStat] = await Promise.all([fs.stat(from), fs.stat(to).catch(() => null)]);
+      if (dstStat && dstStat.size === srcStat.size) continue;
       await fs.mkdir(path.dirname(to), { recursive: true });
       await fs.copyFile(from, to);
       copied++;

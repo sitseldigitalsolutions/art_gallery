@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -29,6 +30,7 @@ export function createExpressApp(routes: RouteDef[]) {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
   app.use(cookieParser());
+  app.use(compression()); // gzip JSON responses (images are already compressed and are skipped)
 
   // Public media only. Private files (custom-art sources, digital deliverables) live in a sibling
   // directory that is never mounted and are streamed through authorized endpoints.
@@ -38,7 +40,8 @@ export function createExpressApp(routes: RouteDef[]) {
       express.static(path.resolve(config.LOCAL_UPLOAD_DIR, 'public'), {
         dotfiles: 'deny',
         index: false,
-        maxAge: '7d',
+        maxAge: '365d', // file names are unique and never reused
+        immutable: true,
         setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
       }),
     );

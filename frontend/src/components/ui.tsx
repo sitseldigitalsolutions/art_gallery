@@ -3,12 +3,13 @@ import { clsx } from 'clsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, ImageOff, Star } from 'lucide-react';
+import { isVariant, mediaVariant, type MediaSize } from '@/lib/media';
 
 /** Fade/slide-in when scrolled into view. */
 export function Reveal({
   children,
   delay = 0,
-  y = 28,
+  y = 20,
   className,
   ...rest
 }: { children: ReactNode; delay?: number; y?: number; className?: string } & HTMLMotionProps<'div'>) {
@@ -16,8 +17,9 @@ export function Reveal({
     <motion.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      // Start ~150px before the block scrolls into view, so it is already visible when it arrives.
+      viewport={{ once: true, margin: '0px 0px 150px 0px' }}
+      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
       {...rest}
     >
@@ -59,6 +61,7 @@ export function ArtImage({
   imgClassName,
   aspect,
   eager,
+  size = 'md',
 }: {
   src: string | null | undefined;
   alt: string;
@@ -66,20 +69,32 @@ export function ArtImage({
   imgClassName?: string;
   aspect?: string;
   eager?: boolean;
+  /** Which stored variant to load; full images are only fetched as a fallback. */
+  size?: MediaSize;
 }) {
+  // Use the requested variant unless the caller already passed a reduced one (e.g. a thumbnail URL).
+  const preferred = src && !isVariant(src) ? mediaVariant(src, size) : src;
+  const [current, setCurrent] = useState(preferred);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setCurrent(preferred);
+    setLoaded(false);
+    setFailed(false);
+  }, [preferred]);
   return (
     <div className={clsx('relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200', className)} style={aspect ? { aspectRatio: aspect } : undefined}>
-      {!loaded && !failed && src && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100" />}
-      {src && !failed ? (
+      {!loaded && !failed && current && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100" />}
+      {current && !failed ? (
         <img
-          src={src}
+          src={current}
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
           decoding="async"
           onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          // Variant missing (older upload)? fall back to the original file once.
+          onError={() => (current !== src && src ? setCurrent(src) : setFailed(true))}
           className={clsx('h-full w-full object-cover transition-opacity duration-700', loaded ? 'opacity-100' : 'opacity-0', imgClassName)}
         />
       ) : (

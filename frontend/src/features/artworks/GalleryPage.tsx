@@ -1,4 +1,5 @@
 import { plural } from '@/lib/format';
+import { mediaVariant } from '@/lib/media';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { clsx } from 'clsx';
@@ -440,7 +441,7 @@ function CategoryBubble({ label, image, active, onClick }: { label: string; imag
       >
         <span className="block h-full w-full overflow-hidden rounded-full bg-gradient-to-br from-brand to-magenta">
           {image ? (
-            <img src={image} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+            <img src={mediaVariant(image, 'thumb') ?? undefined} alt="" loading="lazy" decoding="async" onError={(e) => { const img = e.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = '1'; img.src = image; } }} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
           ) : (
             <LayoutGrid className="m-auto mt-4 text-white" size={22} aria-hidden />
           )}
@@ -687,7 +688,7 @@ function Results({ artworks, view }: { artworks: Parameters<typeof ArtworkTile>[
   const item = (i: number) => ({
     initial: { opacity: 0, y: 28 * m.distance, scale: 0.97 },
     animate: { opacity: 1, y: 0, scale: 1 },
-    transition: { duration: 0.5 * m.duration, delay: Math.min(i % 24, 12) * 0.04 * m.stagger },
+    transition: { duration: 0.4 * m.duration, delay: Math.min(i % 24, 8) * 0.03 * m.stagger },
   });
   if (view === 'grid') {
     return (

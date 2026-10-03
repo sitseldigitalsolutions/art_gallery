@@ -1,10 +1,12 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect } from 'react';
+import { motion } from 'motion/react';
+import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ChatWidget } from './ChatWidget';
 import { Footer } from './Footer';
 import { Navbar } from './Navbar';
+import { PageSkeleton } from './PageSkeleton';
 import { useMotionPrefs, useSiteConfig } from '@/features/site/SiteConfigContext';
+import { prefetchPublicPages } from '@/routes/prefetch';
 
 export function MainLayout() {
   const location = useLocation();
@@ -14,25 +16,28 @@ export function MainLayout() {
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
+  // After the first page is interactive, quietly download the other public pages so navigation is instant.
+  useEffect(() => prefetchPublicPages(), []);
+
   return (
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-white focus:px-4 focus:py-2">
         Skip to content
       </a>
       <Navbar />
-      <AnimatePresence mode="wait">
-        <motion.main
-          id="main"
-          key={location.pathname}
-          initial={motionPrefs.pageTransitions ? { opacity: 0, y: 12 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          exit={motionPrefs.pageTransitions ? { opacity: 0, y: -8 } : { opacity: 1 }}
-          transition={{ duration: motionPrefs.pageTransitions ? 0.35 : 0 }}
-          className="flex-1"
-        >
+      {/* No exit animation: the new page renders immediately (an exit fade made pages flash blank). */}
+      <motion.main
+        id="main"
+        key={location.pathname}
+        initial={motionPrefs.pageTransitions ? { opacity: 0.4, y: 10 } : false}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: motionPrefs.pageTransitions ? 0.3 : 0, ease: 'easeOut' }}
+        className="flex-1"
+      >
+        <Suspense fallback={<PageSkeleton />}>
           <Outlet />
-        </motion.main>
-      </AnimatePresence>
+        </Suspense>
+      </motion.main>
       <Footer />
       {config.footer.showChatWidget && config.contact.email && <ChatWidget />}
     </div>

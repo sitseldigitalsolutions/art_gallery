@@ -1,4 +1,5 @@
 import { plural } from '@/lib/format';
+import { mediaVariant } from '@/lib/media';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -146,7 +147,13 @@ export function CategoriesPage() {
             <Reveal key={c.id} delay={(i % 3) * 0.06}>
               <Link to={`/gallery?category=${c.slug}`} className="group relative block h-60 overflow-hidden rounded-2xl">
                 {c.imageUrl ? (
-                  <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-110" />
+                  <img
+                    src={mediaVariant(c.imageUrl, 'md') ?? undefined}
+                    alt={c.name}
+                    loading="lazy"
+                    decoding="async" onError={(e) => { const img = e.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = '1'; img.src = c.imageUrl!; } }}
+                    className="h-full w-full object-cover transition-transform duration-[1.2s] group-hover:scale-110"
+                  />
                 ) : (
                   <div className="hero-fallback h-full w-full" />
                 )}

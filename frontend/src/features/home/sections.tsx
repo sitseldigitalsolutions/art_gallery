@@ -1,4 +1,5 @@
 import { plural } from '@/lib/format';
+import { mediaVariant } from '@/lib/media';
 import { AnimatePresence, motion } from 'motion/react';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
@@ -66,7 +67,7 @@ export function ArtworkCarousel({ title, subtitle, artworks, to }: { title: stri
             key={a.id}
             initial={{ opacity: 0, x: 40 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: '0px 0px 150px 0px' }}
             transition={{ delay: Math.min(i, 5) * 0.08, duration: 0.6 }}
             className="w-[70%] shrink-0 snap-start sm:w-[42%] md:w-[30%] lg:w-[23%]"
           >
@@ -94,7 +95,7 @@ export function ArtworkCarousel({ title, subtitle, artworks, to }: { title: stri
 export function PerfectArtBand({ artwork, stats, title, subtitle }: { artwork?: ArtworkCard; stats: { artworks: number; artists: number; customers: number; completedCustomArt: number } } & Overrides) {
   return (
     <section className="relative mt-28 overflow-hidden bg-ink py-20 text-white">
-      {artwork?.imageUrl && <img src={artwork.imageUrl} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-15 blur-2xl" />}
+      {artwork?.imageUrl && <img src={mediaVariant(artwork.thumbnailUrl ?? artwork.imageUrl, 'thumb') ?? undefined} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-15 blur-2xl" />}
       <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/80 to-ink/60" aria-hidden />
       <div className="container-x relative grid items-center gap-12 md:grid-cols-12">
         <Reveal className="md:col-span-4">
@@ -210,7 +211,7 @@ export function PhotoToArt({ styles, title, subtitle }: { styles: TaxonomyItem[]
                 key={s.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                viewport={{ once: true, margin: '0px 0px 150px 0px' }}
                 transition={{ delay: 0.1 * i }}
                 className="glass rounded-2xl p-4"
               >

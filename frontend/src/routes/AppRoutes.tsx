@@ -1,20 +1,36 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import HomePage from '@/features/home/HomePage';
-import GalleryPage from '@/features/artworks/GalleryPage';
-import ArtworkDetailPage from '@/features/artworks/ArtworkDetailPage';
-import { ArtistDetailPage, ArtistsPage } from '@/features/artists/ArtistsPages';
-import { CategoriesPage, CollectionDetailPage, CollectionsPage, GalleriesPage, GalleryDetailPage } from '@/features/galleries/GalleriesPages';
-import CreateYourArtPage from '@/features/custom-art/CreateYourArtPage';
-import { MyCustomArtDetail, MyCustomArtList } from '@/features/custom-art/MyCustomArtPages';
-import CartPage from '@/features/cart/CartPage';
-import CheckoutPage from '@/features/checkout/CheckoutPage';
-import { OrderDetailPage, OrdersList } from '@/features/orders/OrdersPages';
-import WishlistPage from '@/features/wishlist/WishlistPage';
-import { AccountHome, AccountLayout } from '@/features/account/AccountPages';
-import { ArtistRegisterPage, LoginPage, RegisterPage } from '@/features/auth/AuthPages';
-import { AboutPage, ForbiddenPage, NotFoundPage } from '@/features/static/StaticPages';
+import { pageImports } from './prefetch';
+// Public pages load on demand (and are prefetched in the background); the homepage stays in the main bundle.
+const named = <K extends keyof typeof pageImports, N extends string>(key: K, name: N) =>
+  lazy(() => pageImports[key]().then((m) => ({ default: (m as unknown as Record<N, ComponentType>)[name] })));
+const GalleryPage = lazy(pageImports.gallery);
+const ArtworkDetailPage = lazy(pageImports.artwork);
+const ArtistsPage = named('artists', 'ArtistsPage');
+const ArtistDetailPage = named('artists', 'ArtistDetailPage');
+const CategoriesPage = named('galleries', 'CategoriesPage');
+const CollectionDetailPage = named('galleries', 'CollectionDetailPage');
+const CollectionsPage = named('galleries', 'CollectionsPage');
+const GalleriesPage = named('galleries', 'GalleriesPage');
+const GalleryDetailPage = named('galleries', 'GalleryDetailPage');
+const CreateYourArtPage = lazy(pageImports.createArt);
+const MyCustomArtDetail = named('myCustomArt', 'MyCustomArtDetail');
+const MyCustomArtList = named('myCustomArt', 'MyCustomArtList');
+const CartPage = lazy(pageImports.cart);
+const CheckoutPage = lazy(pageImports.checkout);
+const OrderDetailPage = named('orders', 'OrderDetailPage');
+const OrdersList = named('orders', 'OrdersList');
+const WishlistPage = lazy(pageImports.wishlist);
+const AccountHome = named('account', 'AccountHome');
+const AccountLayout = named('account', 'AccountLayout');
+const ArtistRegisterPage = named('auth', 'ArtistRegisterPage');
+const LoginPage = named('auth', 'LoginPage');
+const RegisterPage = named('auth', 'RegisterPage');
+const AboutPage = named('static', 'AboutPage');
+const ForbiddenPage = named('static', 'ForbiddenPage');
+const NotFoundPage = named('static', 'NotFoundPage');
 import { FullPageLoader, RequireAuth, RequireRole } from './guards';
 
 // Dashboards (Ant Design + charts) are split into their own chunks.
