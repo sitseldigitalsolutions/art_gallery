@@ -21,6 +21,8 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 chars'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 chars'),
   JWT_ACCESS_TTL: z.string().default('15m'),
+  /** 'none' is required when the frontend is on a different site than the API (HTTPS only). */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   FILE_SIGNING_SECRET: z.string().min(32, 'FILE_SIGNING_SECRET must be at least 32 chars'),
 

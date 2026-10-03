@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Art & Gallery Marketplace API (Express/Hapi + Prisma + MySQL)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/index.js",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "start": "node server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
     "test": "vitest run",
@@ -16,7 +20,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
-    "images:topics": "tsx prisma/topic-images.ts"
+    "images:topics": "tsx prisma/topic-images.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

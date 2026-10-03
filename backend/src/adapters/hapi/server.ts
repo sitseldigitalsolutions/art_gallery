@@ -18,8 +18,8 @@ export async function createHapiServer(routes: RouteDef[]) {
 
   server.state('ag_rt', {
     isHttpOnly: true,
-    isSecure: config.isProd,
-    isSameSite: 'Lax',
+    isSecure: config.isProd || config.COOKIE_SAMESITE === 'none',
+    isSameSite: ({ lax: 'Lax', strict: 'Strict', none: 'None' } as const)[config.COOKIE_SAMESITE],
     path: '/api/v1/auth',
     encoding: 'none',
     strictHeader: true,

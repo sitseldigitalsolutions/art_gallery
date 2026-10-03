@@ -113,6 +113,9 @@ Ready-made SQL files are in `database/` (MySQL 8 and MariaDB 10.5+ compatible, t
 Regenerate the files from your local database with `cd backend && npx tsx prisma/export-production.ts` (options: `EXPORT_PUBLIC_URL`, `EXPORT_ADMIN_EMAIL`).
 
 ### Hostinger (mymoonsgallery.com)
+
+**Backend only on Hostinger?** Follow [docs/DEPLOY_HOSTINGER.md](docs/DEPLOY_HOSTINGER.md): root directory `backend`, build `npm ci --include=dev && npm run build`, entry file `server.js`.
+
 `backend/.env.production` (git-ignored, local only) is prepared for your Hostinger database (host `localhost` when the API runs on the Hostinger server).
 1. **Rotate the database password in hPanel first** (it was shared in chat), then update `DATABASE_URL` (URL-encode special characters, e.g. `@` → `%40`).
 2. Deploy the API on a plan that runs Node.js (Hostinger VPS, or a Node.js-enabled hosting plan): `npm ci && npx prisma generate && npm run build && npx prisma migrate deploy && node dist/index.js`, with `.env.production` as `.env`.

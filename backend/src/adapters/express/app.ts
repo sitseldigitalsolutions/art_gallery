@@ -94,8 +94,9 @@ function send(res: Response, result: HandlerResult) {
   for (const c of result.cookies ?? []) {
     const opts = {
       httpOnly: true,
-      secure: config.isProd,
-      sameSite: 'lax' as const,
+      // SameSite=None (cross-site frontend) is only valid on secure cookies.
+      secure: config.isProd || config.COOKIE_SAMESITE === 'none',
+      sameSite: config.COOKIE_SAMESITE,
       path: c.path ?? '/api/v1/auth',
     };
     if (c.clear) res.clearCookie(c.name, opts);
